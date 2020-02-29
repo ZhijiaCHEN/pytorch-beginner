@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.datasets import MNIST
 from torchvision.utils import save_image
-
+from random import shuffle
 if not os.path.exists('./mlp_img'):
     os.mkdir('./mlp_img')
 
@@ -23,16 +23,17 @@ def to_img(x):
 
 
 num_epochs = 100
-batch_size = 128
+batch_size = 4
 learning_rate = 1e-3
 
 img_transform = transforms.Compose([
     transforms.ToTensor(),
-    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+    transforms.Normalize([0.5], [0.5])
 ])
 
-dataset = MNIST('./data', transform=img_transform)
+dataset = MNIST('./data', transform=img_transform, download=True)
 dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+dataloader = [d for d in dataloader][:100]
 
 
 class autoencoder(nn.Module):
@@ -42,14 +43,19 @@ class autoencoder(nn.Module):
             nn.Linear(28 * 28, 128),
             nn.ReLU(True),
             nn.Linear(128, 64),
-            nn.ReLU(True), nn.Linear(64, 12), nn.ReLU(True), nn.Linear(12, 3))
+            nn.ReLU(True), 
+            nn.Linear(64, 12), 
+            nn.ReLU(True), 
+            nn.Linear(12, 3))
         self.decoder = nn.Sequential(
             nn.Linear(3, 12),
             nn.ReLU(True),
             nn.Linear(12, 64),
             nn.ReLU(True),
             nn.Linear(64, 128),
-            nn.ReLU(True), nn.Linear(128, 28 * 28), nn.Tanh())
+            nn.ReLU(True), 
+            nn.Linear(128, 28 * 28), 
+            nn.Tanh())
 
     def forward(self, x):
         x = self.encoder(x)
@@ -63,6 +69,7 @@ optimizer = torch.optim.Adam(
     model.parameters(), lr=learning_rate, weight_decay=1e-5)
 
 for epoch in range(num_epochs):
+    shuffle(dataloader)
     for data in dataloader:
         img, _ = data
         img = img.view(img.size(0), -1)
@@ -76,7 +83,7 @@ for epoch in range(num_epochs):
         optimizer.step()
     # ===================log========================
     print('epoch [{}/{}], loss:{:.4f}'
-          .format(epoch + 1, num_epochs, loss.data[0]))
+          .format(epoch + 1, num_epochs, loss.data))
     if epoch % 10 == 0:
         pic = to_img(output.cpu().data)
         save_image(pic, './mlp_img/image_{}.png'.format(epoch))
